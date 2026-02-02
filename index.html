@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Trend Intel Terminal (Auto)</title>
+<style>
+  :root{
+    --bg:#02060f;
+    --panel:rgba(0,0,0,.55);
+    --panel2:rgba(255,255,255,.03);
+    --stroke:rgba(255,255,255,.10);
+    --txt:#e3ebff;
+    --mut:#93a4cc;
+
+    --g:#00ff84;
+    --r:#ff3b5c;
+    --y:#fbbf24;
+    --c:#22d3ee;
+    --p:#a78bfa;
+
+    --shadow:0 22px 70px rgba(0,0,0,.65);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:var(--mono); color:var(--txt);
+    background:
+      radial-gradient(900px 560px at 15% 0%, rgba(0,255,132,.10), transparent 55%),
+      radial-gradient(900px 560px at 85% 10%, rgba(255,59,92,.10), transparent 55%),
+      radial-gradient(900px 560px at 55% 90%, rgba(34,211,238,.10), transparent 55%),
+      var(--bg);
+  }
+
+  .wrap{max-width:1180px;margin:12px auto;padding:10px;}
+  .shell{
+    border:1px solid var(--stroke);
+    border-radius:24px;
+    background:linear-gradient(180deg,var(--panel),var(--panel2));
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    position:relative;
+  }
+  .shell:before{
+    content:""; position:absolute; inset:-2px;
+    background:linear-gradient(135deg, rgba(0,255,132,.14), rgba(34,211,238,.12), rgba(255,59,92,.12), rgba(167,139,250,.10));
+    filter:blur(18px); opacity:.60; z-index:0;
+  }
+  .shell > *{position:relative; z-index:1;}
+
+  .top{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:10px 12px; border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .mark{
+    width:36px;height:36px;border-radius:14px;
+    background:linear-gradient(135deg, rgba(34,211,238,.85), rgba(167,139,250,.85));
+    box-shadow:0 18px 40px rgba(34,211,238,.16);
+  }
+  .title{font-weight:950;font-size:12px;letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sub{font-family:ui-sans-serif,system-ui;font-size:10px;color:var(--mut);margin-top:2px;}
+  .btn{
+    border:1px solid var(--stroke);
+    background:rgba(255,255,255,.06);
+    color:var(--txt);
+    padding:8px 10px; border-radius:14px;
+    cursor:pointer; font-size:11px; user-select:none;
+    transition:.15s transform,.15s opacity;
+  }
+  .btn:hover{transform:translateY(-1px);opacity:.96;}
+
+  .board{
+    display:grid;
+    grid-template-columns: 1.35fr 1fr 1fr 1fr 1fr 1fr;
+    gap:8px; padding:10px 12px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  @media(max-width:980px){.board{grid-template-columns:1fr 1fr 1fr;}}
+  @media(max-width:640px){.board{grid-template-columns:1fr 1fr;}}
+
+  .tile{
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.03);
+    border-radius:16px; padding:10px;
+    position:relative; overflow:hidden;
+  }
+  .tile:after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(255,255,255,.05), transparent);
+    opacity:.55; pointer-events:none;
+  }
+  .tile.primary{background:linear-gradient(135deg, rgba(34,211,238,.10), rgba(167,139,250,.08));}
+  .tile.g{background:rgba(0,255,132,.08); border-color:rgba(0,255,132,.22);}
+  .tile.r{background:rgba(255,59,92,.08); border-color:rgba(255,59,92,.22);}
+  .tile.y{background:rgba(251,191,36,.08); border-color:rgba(251,191,36,.22);}
+
+  .k{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:10px;color:var(--mut);letter-spacing:.5px;}
+  .v{font-size:13px;font-weight:950;margin-top:6px;letter-spacing:.4px;}
+  .mini{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.3;}
+
+  .dot{width:8px;height:8px;border-radius:999px;background:var(--mut);}
+  .dot.ok{background:var(--g);} .dot.bad{background:var(--r);}
+
+  .grid{
+    display:grid;
+    grid-template-columns: 1.05fr .95fr;
+    gap:10px; padding:10px 12px 12px;
+  }
+  @media(max-width:980px){.grid{grid-template-columns:1fr;}}
+
+  .card{
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.03);
+    border-radius:18px; padding:10px;
+  }
+
+  label{display:block;font-size:10px;color:var(--mut);margin:7px 0 5px;letter-spacing:.4px;}
+  input,select{
+    width:100%; padding:9px 9px; border-radius:14px;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(0,0,0,.18); color:var(--txt);
+    outline:none; font-size:12px;
+  }
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  @media(max-width:560px){.row{grid-template-columns:1fr;}}
+
+  .trendGrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;}
+  @media(max-width:760px){.trendGrid{grid-template-columns:1fr;}}
+
+  .tf{border:1px solid rgba(255,255,255,.10);border-radius:16px;padding:10px;background:rgba(255,255,255,.03);}
+  .tf.up{border-color:rgba(0,255,132,.28);background:rgba(0,255,132,.06);}
+  .tf.down{border-color:rgba(255,59,92,.28);background:rgba(255,59,92,.06);}
+  .tf.neutral{border-color:rgba(255,255,255,.10);}
+  .tfH{display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--mut);}
+  .tfV{font-size:13px;font-weight:950;margin-top:6px;}
+  .tfS{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.35;}
+
+  .decision{
+    margin-top:10px; border-radius:16px; padding:10px;
+    border:1px solid rgba(255,255,255,.10);
+    background:linear-gradient(135deg, rgba(34,211,238,.08), rgba(167,139,250,.06));
+  }
+  .decision.good{background:linear-gradient(135deg, rgba(0,255,132,.10), rgba(34,211,238,.05)); border-color:rgba(0,255,132,.22);}
+  .decision.bad{background:linear-gradient(135deg, rgba(255,59,92,.10), rgba(34,211,238,.05)); border-color:rgba(255,59,92,.22);}
+  .decision .big{font-size:13px;font-weight:950;margin-top:6px;}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="shell">
+    <div class="top">
+      <div class="brand">
+        <div class="mark"></div>
+        <div style="min-width:0">
+          <div class="title">TREND INTEL TERMINAL • AUTO (H1/H4/D1 EMA)</div>
+          <div class="sub">Automatic trend + session + live price inside cTrader WebView plugin SDK.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" id="refreshBtn">REFRESH DATA</button>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="tile primary">
+        <div class="k">
+          <span><span id="connDot" class="dot bad"></span> <span id="connTxt">NOT CONNECTED</span></span>
+          <span id="nowTime">—</span>
+        </div>
+        <div class="v" id="barSymbol">—</div>
+        <div class="mini">Session: <span id="barSession">—</span> • Placement: <span id="barPlacement">—</span></div>
+      </div>
+
+      <div class="tile">
+        <div class="k">BID / ASK</div>
+        <div class="v" id="barBidAsk">—</div>
+        <div class="mini">mid <span id="barMid">—</span> • spread <span id="barSpr">—</span></div>
+      </div>
+
+      <div class="tile">
+        <div class="k">D1 TREND</div>
+        <div class="v" id="barD1">—</div>
+        <div class="mini">EMA20 vs EMA50</div>
+      </div>
+
+      <div class="tile">
+        <div class="k">H4 TREND</div>
+        <div class="v" id="barH4">—</div>
+        <div class="mini">EMA20 vs EMA50</div>
+      </div>
+
+      <div class="tile">
+        <div class="k">H1 TREND</div>
+        <div class="v" id="barH1">—</div>
+        <div class="mini">EMA20 vs EMA50</div>
+      </div>
+
+      <div class="tile y">
+        <div class="k">DECISION</div>
+        <div class="v" id="barDecision">—</div>
+        <div class="mini">Rule: no counter-trend</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Trend tiles -->
+      <div class="card">
+        <div class="k">AUTO TREND (EMA20/EMA50 + EMA20 slope)</div>
+
+        <div class="trendGrid">
+          <div class="tf neutral" id="tfD1">
+            <div class="tfH"><span>D1</span><span id="d1Tag">—</span></div>
+            <div class="tfV" id="d1Dir">—</div>
+            <div class="tfS" id="d1Info">—</div>
+          </div>
+
+          <div class="tf neutral" id="tfH4">
+            <div class="tfH"><span>H4</span><span id="h4Tag">—</span></div>
+            <div class="tfV" id="h4Dir">—</div>
+            <div class="tfS" id="h4Info">—</div>
+          </div>
+
+          <div class="tf neutral" id="tfH1">
+            <div class="tfH"><span>H1</span><span id="h1Tag">—</span></div>
+            <div class="tfV" id="h1Dir">—</div>
+            <div class="tfS" id="h1Info">—</div>
+          </div>
+        </div>
+
+        <div class="decision" id="decisionBox">
+          <div class="k">TRADE FILTER</div>
+          <div class="big" id="decisionTitle">—</div>
+          <div class="mini" id="decisionSub">—</div>
+        </div>
+      </div>
+
+      <!-- Right: optional risk math -->
+      <div class="card">
+        <div class="k">OPTIONAL: RISK & PROFIT (if you want)</div>
+
+        <div class="row">
+          <div>
+            <label>Balance</label>
+            <input id="balance" type="number" step="0.01" value="10000" />
+          </div>
+          <div>
+            <label>Risk mode</label>
+            <select id="riskMode">
+              <option value="pct" selected>Risk %</option>
+              <option value="amt">Risk $</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label id="riskLabel">Risk (%)</label>
+            <input id="risk" type="number" step="0.01" value="1" />
+          </div>
+          <div>
+            <label>Stop (pips)</label>
+            <input id="slPips" type="number" step="0.1" value="20" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>RR</label>
+            <input id="rr" type="number" step="0.1" value="2" />
+          </div>
+          <div>
+            <label>Pip size</label>
+            <input id="pipSize" type="number" step="0.00001" value="0.0001" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Contract size (units/lot)</label>
+            <input id="contractSize" type="number" step="1" value="100000" />
+          </div>
+          <div>
+            <label>Conv rate → account</label>
+            <input id="convRate" type="number" step="0.0001" value="1" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Volume step (lots)</label>
+            <input id="volStep" type="number" step="0.01" value="0.01" />
+          </div>
+          <div>
+            <label>Output</label>
+            <input id="mathOut" readonly value="—" />
+          </div>
+        </div>
+
+        <div class="mini">This panel is optional — dashboard works even if you ignore it.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  // WV plugin SDK basics (handshake + requests + events) are documented here. :contentReference[oaicite:1]{index=1}
+  import { createClientAdapter } from "https://esm.sh/@spotware-web-team/sdk-external-api@0.0.5";
+  import {
+    handleConfirmEvent,
+    registerEvent,
+    getLightSymbolList,
+    getSymbol,
+    getTrendbarList,
+    subscribeQuotes,
+    quoteEvent,
+  } from "https://esm.sh/@spotware-web-team/sdk@0.0.9";
+  import { take, tap } from "https://esm.sh/rxjs@7.8.2";
+
+  const $ = (id) => document.getElementById(id);
+  const isNum = (x) => Number.isFinite(x) && !Number.isNaN(x);
+  const fmt = (n,d=2) => isNum(n) ? n.toLocaleString(undefined,{maximumFractionDigits:d}) : "—";
+  const fmtPx = (n,d=5) => isNum(n) ? n.toLocaleString(undefined,{maximumFractionDigits:d}) : "—";
+  const roundStep = (v,step) => (!isNum(v)||!isNum(step)||step<=0) ? v : Math.floor(v/step)*step;
+
+  // IMPORTANT: public server messages define bar fields and scaling (1/100000 units etc.). :contentReference[oaicite:2]{index=2}
+  const PRICE_SCALE = 100000;
+
+  let adapter = null;
+  let symbolId = null;
+  let bid = null, ask = null;
+
+  // ---- Query params from cTrader placement ----
+  function readQuery(){
+    const qs = new URLSearchParams(location.search);
+    return {
+      symbol: qs.get("symbol") || "EURUSD",
+      placement: qs.get("placement") || "—",
+    };
+  }
+
+  // ---- Sessions (automatic via UTC clock) ----
+  // Simple, practical session windows in UTC:
+  // Asia 00–07, London 07–12, Overlap 12–16, New York 16–21, Off 21–24
+  function detectSessionUTC(){
+    const h = new Date().getUTCHours();
+    if (h >= 0 && h < 7) return "ASIA";
+    if (h >= 7 && h < 12) return "LONDON";
+    if (h >= 12 && h < 16) return "OVERLAP";
+    if (h >= 16 && h < 21) return "NEW YORK";
+    return "OFF HOURS";
+  }
+
+  function nowColombo(){
+    // Asia/Colombo = UTC+05:30
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset()*60000;
+    const colombo = new Date(utcMs + 5.5*3600000);
+    return colombo.toISOString().replace("T"," ").slice(0,19) + " (Colombo)";
+  }
+
+  // ---- EMA ----
+  function ema(series, period){
+    if (!series || series.length < period+2) return null;
+    const k = 2/(period+1);
+    let e = series.slice(0,period).reduce((a,b)=>a+b,0)/period;
+    for (let i=period;i<series.length;i++) e = series[i]*k + e*(1-k);
+    return e;
+  }
+  function emaSlope(series, period){
+    if (!series || series.length < period+3) return null;
+    const now = ema(series, period);
+    const prev = ema(series.slice(0,-1), period);
+    if (!isNum(now) || !isNum(prev)) return null;
+    return now - prev;
+  }
+
+  function trendFromCloses(closes){
+    const fast = 20, slow = 50;
+    const eFast = ema(closes, fast);
+    const eSlow = ema(closes, slow);
+    const slope = emaSlope(closes, fast);
+    if (!isNum(eFast) || !isNum(eSlow) || !isNum(slope)) return {state:"neutral"};
+    if (eFast > eSlow && slope > 0) return {state:"up", eFast, eSlow, slope};
+    if (eFast < eSlow && slope < 0) return {state:"down", eFast, eSlow, slope};
+    return {state:"neutral", eFast, eSlow, slope};
+  }
+
+  function setTfUI(tfKey, stateObj){
+    const map = {
+      D1: {box:"tfD1", dir:"d1Dir", tag:"d1Tag", info:"d1Info", bar:"barD1"},
+      H4: {box:"tfH4", dir:"h4Dir", tag:"h4Tag", info:"h4Info", bar:"barH4"},
+      H1: {box:"tfH1", dir:"h1Dir", tag:"h1Tag", info:"h1Info", bar:"barH1"},
+    };
+    const m = map[tfKey];
+    const box = $(m.box);
+    box.classList.remove("up","down","neutral");
+    box.classList.add(stateObj.state);
+
+    const label = stateObj.state.toUpperCase();
+    $(m.dir).textContent = label;
+    $(m.tag).textContent = (stateObj.state==="up") ? "GREEN" : (stateObj.state==="down") ? "RED" : "WAIT";
+    $(m.bar).textContent = label;
+
+    if (isNum(stateObj.eFast) && isNum(stateObj.eSlow)){
+      $(m.info).textContent =
+        `EMA20 ${fmtPx(stateObj.eFast,5)} • EMA50 ${fmtPx(stateObj.eSlow,5)} • slope ${fmt(stateObj.slope,6)}`;
+    } else {
+      $(m.info).textContent = "Not enough bars yet.";
+    }
+  }
+
+  function setDecision(d1,h4,h1){
+    const box = $("decisionBox");
+    box.classList.remove("good","bad");
+
+    const allUp = d1==="up" && h4==="up" && h1==="up";
+    const allDown = d1==="down" && h4==="down" && h1==="down";
+
+    if (allUp){
+      $("barDecision").textContent = "BUY ONLY";
+      box.classList.add("good");
+      $("decisionTitle").textContent = "✅ BUY ONLY (D1+H4+H1 aligned UP)";
+      $("decisionSub").textContent = "Rule: don’t short against aligned HTF trend.";
+      return;
+    }
+    if (allDown){
+      $("barDecision").textContent = "SELL ONLY";
+      box.classList.add("good");
+      $("decisionTitle").textContent = "✅ SELL ONLY (D1+H4+H1 aligned DOWN)";
+      $("decisionSub").textContent = "Rule: don’t buy against aligned HTF trend.";
+      return;
+    }
+
+    $("barDecision").textContent = "WAIT";
+    box.classList.add("bad");
+    $("decisionTitle").textContent = "⛔ WAIT (timeframes misaligned)";
+    $("decisionSub").textContent = "No trade until alignment returns.";
+  }
+
+  // ---- Trendbar parsing (ProtoTrendbar fields) ----
+  function trendbarClose(tb){
+    // low + deltaClose, both are in 1/100000 units
+    const low = tb?.low;
+    const dClose = tb?.deltaClose;
+    if (!isNum(low) || !isNum(dClose)) return null;
+    return (Number(low) + Number(dClose)) / PRICE_SCALE;
+  }
+
+  async function fetchCloses(periodEnum, count=300){
+    // getTrendbarList requires toTimestamp/fromTimestamp + count. :contentReference[oaicite:3]{index=3}
+    const toTimestamp = Date.now();
+    const res = await new Promise((resolve) => {
+      getTrendbarList(adapter, {
+        symbolId,
+        period: periodEnum,
+        toTimestamp,
+        count,
+        // type omitted => regular OHLC (default). Model lists trendbar type options. :contentReference[oaicite:4]{index=4}
+      }).pipe(take(1)).subscribe({
+        next: resolve,
+        error: () => resolve(null),
+      });
+    });
+
+    const bars = res?.trendbar || [];
+    const closes = [];
+    for (const b of bars){
+      const c = trendbarClose(b);
+      if (isNum(c)) closes.push(c);
+    }
+    // Returned bars are “most recent first” (per message docs). Reverse to oldest→newest for EMA.
+    closes.reverse();
+    return closes.length ? closes : null;
+  }
+
+  function setConn(ok){
+    $("connDot").className = "dot " + (ok ? "ok" : "bad");
+    $("connTxt").textContent = ok ? "CONNECTED" : "NOT CONNECTED";
+  }
+
+  function updateBoardPrices(){
+    if (!isNum(bid) || !isNum(ask)) return;
+    const mid = (bid+ask)/2;
+    $("barBidAsk").textContent = `${fmtPx(bid,5)} / ${fmtPx(ask,5)}`;
+    $("barMid").textContent = fmtPx(mid,5);
+    $("barSpr").textContent = fmtPx(ask-bid,5);
+  }
+
+  // ---- Optional risk math ----
+  function calcRiskMath(){
+    const balance = parseFloat($("balance").value);
+    const riskMode = $("riskMode").value;
+    const riskIn = parseFloat($("risk").value);
+    const slPips = parseFloat($("slPips").value);
+    const rr = parseFloat($("rr").value);
+    const pipSize = parseFloat($("pipSize").value);
+    const contractSize = parseFloat($("contractSize").value);
+    const convRate = parseFloat($("convRate").value);
+    const volStep = parseFloat($("volStep").value);
+
+    if (![balance,riskIn,slPips,rr,pipSize,contractSize,convRate,volStep].every(isNum) || slPips<=0 || rr<=0) {
+      $("mathOut").value = "—";
+      return;
+    }
+
+    const riskMoney = (riskMode==="pct") ? (balance*(riskIn/100)) : riskIn;
+    const pipPerLot = (pipSize*contractSize)*convRate;
+    const rawLots = riskMoney / (slPips * pipPerLot);
+    const lots = roundStep(rawLots, volStep);
+    const profit = riskMoney * rr;
+
+    $("mathOut").value = `Lots ${fmt(lots,2)} | Risk ${fmt(riskMoney,2)} | Profit@TP ${fmt(profit,2)}`;
+  }
+
+  async function init(){
+    const { symbol, placement } = readQuery();
+    $("barSymbol").textContent = symbol;
+    $("barPlacement").textContent = placement;
+
+    // session + time
+    const tickClock = () => {
+      $("nowTime").textContent = nowColombo();
+      $("barSession").textContent = detectSessionUTC();
+    };
+    tickClock();
+    setInterval(tickClock, 1000);
+
+    // Connect to host (handshake)
+    adapter = createClientAdapter({ logger: undefined });
+
+    handleConfirmEvent(adapter, {}).pipe(take(1)).subscribe();
+    await new Promise((resolve) => {
+      registerEvent(adapter).pipe(
+        take(1),
+        tap(() => {
+          handleConfirmEvent(adapter, {}).pipe(take(1)).subscribe();
+          setConn(true);
+          resolve();
+        })
+      ).subscribe({ error: () => resolve() });
+    });
+
+    // Resolve symbolId
+    const light = await new Promise((resolve) => {
+      getLightSymbolList(adapter, {}).pipe(take(1)).subscribe({ next: resolve, error: () => resolve(null) });
+    });
+
+    const list = light?.symbol || light?.symbols || light?.symbolList || [];
+    const wanted = String(symbol).toUpperCase();
+    const hit = Array.isArray(list)
+      ? list.find(s => String(s?.name || s?.symbolName || "").toUpperCase() === wanted)
+      : null;
+
+    symbolId = hit?.id ?? hit?.symbolId ?? null;
+    if (!symbolId){
+      $("decisionTitle").textContent = "Symbol not found in broker symbol list.";
+      $("decisionSub").textContent = "Open plugin from a chart of a tradable symbol.";
+      return;
+    }
+
+    // Get symbol meta (pip size/contract/step best-effort)
+    const sym = await new Promise((resolve) => {
+      getSymbol(adapter, { symbolId:[symbolId] }).pipe(take(1)).subscribe({ next: resolve, error: () => resolve(null) });
+    });
+    const meta = Array.isArray(sym?.symbol) ? sym.symbol[0] : (sym?.symbol || sym);
+    if (meta){
+      const lotSize = meta?.lotSize ?? meta?.lotSizeInUnits ?? meta?.contractSize;
+      const stepVol = meta?.stepVolume ?? meta?.minVolumeStep ?? meta?.volumeStep;
+      const pipPos = meta?.pipPosition;
+      if (isNum(pipPos)) $("pipSize").value = Math.pow(10, -pipPos);
+      if (isNum(lotSize)) $("contractSize").value = Number(lotSize);
+      if (isNum(stepVol) && isNum(lotSize) && lotSize>0) $("volStep").value = Number(stepVol)/Number(lotSize);
+    }
+    calcRiskMath();
+
+    // Subscribe quotes
+    subscribeQuotes(adapter, { symbolId:[symbolId] }).pipe(take(1)).subscribe({ next:()=>{}, error:()=>{} });
+    quoteEvent(adapter).subscribe({
+      next: (q) => {
+        const sid = q?.symbolId ?? q?.SymbolId;
+        if (isNum(sid) && Number(sid) !== Number(symbolId)) return;
+
+        // quoteEvent bid/ask can be in integer scaled form depending on payload
+        // docs show bid/ask as 1/100000 format in server message. :contentReference[oaicite:5]{index=5}
+        const qb = q?.bid ?? q?.Bid;
+        const qa = q?.ask ?? q?.Ask;
+
+        if (isNum(qb) && qb > 1000) bid = Number(qb)/PRICE_SCALE;  else if (isNum(qb)) bid = Number(qb);
+        if (isNum(qa) && qa > 1000) ask = Number(qa)/PRICE_SCALE;  else if (isNum(qa)) ask = Number(qa);
+
+        updateBoardPrices();
+      }
+    });
+
+    // Load trendbars + compute EMA trends
+    await refreshTrend();
+  }
+
+  async function refreshTrend(){
+    if (!adapter || !symbolId) return;
+
+    // Period enums: H1=9, H4=10, D1=12 per model table. :contentReference[oaicite:6]{index=6}
+    const closesH1 = await fetchCloses(9, 300);
+    const closesH4 = await fetchCloses(10, 300);
+    const closesD1 = await fetchCloses(12, 300);
+
+    const tH1 = closesH1 ? trendFromCloses(closesH1) : {state:"neutral"};
+    const tH4 = closesH4 ? trendFromCloses(closesH4) : {state:"neutral"};
+    const tD1 = closesD1 ? trendFromCloses(closesD1) : {state:"neutral"};
+
+    setTfUI("H1", tH1);
+    setTfUI("H4", tH4);
+    setTfUI("D1", tD1);
+
+    setDecision(tD1.state, tH4.state, tH1.state);
+  }
+
+  $("refreshBtn").addEventListener("click", refreshTrend);
+
+  $("riskMode").addEventListener("change", ()=>{
+    $("riskLabel").textContent = ($("riskMode").value==="pct") ? "Risk (%)" : "Risk ($)";
+    calcRiskMath();
+  });
+  ["balance","risk","slPips","rr","pipSize","contractSize","convRate","volStep"].forEach(id=>{
+    $(id).addEventListener("input", calcRiskMath);
+  });
+
+  try{
+    await init();
+  }catch(e){
+    setConn(false);
+    $("decisionTitle").textContent = "Not running inside cTrader host.";
+    $("decisionSub").textContent = "Open this as a WebView plugin inside cTrader to enable automatic trend.";
+  }
+</script>
+</body>
+</html>
