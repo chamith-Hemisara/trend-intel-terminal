@@ -71,6 +71,18 @@
   }
   .btn:hover{transform:translateY(-1px);opacity:.96;}
 
+  /* Error banner */
+  .errorBanner{
+    background:rgba(255,59,92,.15);
+    border:1px solid rgba(255,59,92,.30);
+    border-radius:14px;
+    padding:12px;
+    margin:10px 12px;
+    font-size:11px;
+    line-height:1.5;
+  }
+  .errorBanner strong{color:var(--r);}
+
   /* Board */
   .board{
     display:grid;
@@ -178,10 +190,12 @@
       </div>
     </div>
 
+    <div id="errorContainer"></div>
+
     <div class="board">
       <div class="tile primary">
         <div class="k">
-          <span><span id="connDot" class="dot bad"></span> <span id="connTxt">NOT CONNECTED</span></span>
+          <span><span id="connDot" class="dot bad"></span> <span id="connTxt">LOADING...</span></span>
           <span id="nowTime">—</span>
         </div>
         <div class="v" id="barSymbol">—</div>
@@ -224,27 +238,27 @@
         <div class="trendGrid">
           <div class="tf neutral" id="tfD1">
             <div class="tfH"><span>D1</span><span id="d1Tag">—</span></div>
-            <div class="tfV" id="d1Dir">—</div>
-            <div class="tfS" id="d1Info">—</div>
+            <div class="tfV" id="d1Dir">LOADING...</div>
+            <div class="tfS" id="d1Info">Waiting for data...</div>
           </div>
 
           <div class="tf neutral" id="tfH4">
             <div class="tfH"><span>H4</span><span id="h4Tag">—</span></div>
-            <div class="tfV" id="h4Dir">—</div>
-            <div class="tfS" id="h4Info">—</div>
+            <div class="tfV" id="h4Dir">LOADING...</div>
+            <div class="tfS" id="h4Info">Waiting for data...</div>
           </div>
 
           <div class="tf neutral" id="tfH1">
             <div class="tfH"><span>H1</span><span id="h1Tag">—</span></div>
-            <div class="tfV" id="h1Dir">—</div>
-            <div class="tfS" id="h1Info">—</div>
+            <div class="tfV" id="h1Dir">LOADING...</div>
+            <div class="tfS" id="h1Info">Waiting for data...</div>
           </div>
         </div>
 
         <div class="decision" id="decisionBox">
           <div class="k">FINAL FILTER</div>
-          <div class="big" id="decisionTitle">—</div>
-          <div class="mini" id="decisionSub">—</div>
+          <div class="big" id="decisionTitle">Initializing...</div>
+          <div class="mini" id="decisionSub">Connecting to cTrader...</div>
         </div>
       </div>
 
@@ -273,13 +287,13 @@
             <div class="mini">
               • If misaligned → <span class="mono">WAIT</span><br/>
               • Only trade in session windows you trust<br/>
-              • You don’t need many trades — you need clean ones
+              • You don't need many trades — you need clean ones
             </div>
           </div>
 
           <div class="item">
             <div class="k">📝 Notes (optional)</div>
-            <textarea id="notes" style="width:100%;min-height:110px;resize:vertical;border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18);color:var(--txt);font-family:var(--mono);font-size:12px;outline:none;"></textarea>
+            <textarea id="notes" style="width:100%;min-height:110px;resize:vertical;border-radius:14px;padding:10px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.18);color:var(--txt);font-family:var(--mono);font-size:12px;outline:none;" placeholder="Add your levels, liquidity zones, BOS/CHOCH notes here..."></textarea>
             <div class="mini">Levels, liquidity, BOS/CHOCH, plan. (No risk here.)</div>
           </div>
         </div>
@@ -290,21 +304,49 @@
 </div>
 
 <script type="module">
-  import { createClientAdapter } from "https://esm.sh/@spotware-web-team/sdk-external-api@0.0.5";
-  import {
-    handleConfirmEvent,
-    registerEvent,
-    getLightSymbolList,
-    getTrendbarList,
-    subscribeQuotes,
-    quoteEvent,
-  } from "https://esm.sh/@spotware-web-team/sdk@0.0.9";
-  import { take, tap } from "https://esm.sh/rxjs@7.8.2";
-
   const $ = (id) => document.getElementById(id);
   const isNum = (x) => Number.isFinite(x) && !Number.isNaN(x);
   const fmt = (n,d=2) => isNum(n) ? n.toLocaleString(undefined,{maximumFractionDigits:d}) : "—";
   const fmtPx = (n,d=5) => isNum(n) ? n.toLocaleString(undefined,{maximumFractionDigits:d}) : "—";
+
+  function showError(msg){
+    const container = $("errorContainer");
+    container.innerHTML = `<div class="errorBanner"><strong>⚠️ ERROR:</strong> ${msg}</div>`;
+    console.error("Terminal Error:", msg);
+  }
+
+  function clearError(){
+    $("errorContainer").innerHTML = "";
+  }
+
+  // Try to import SDK modules with error handling
+  let createClientAdapter, handleConfirmEvent, registerEvent, getLightSymbolList;
+  let getTrendbarList, subscribeQuotes, quoteEvent, take, tap;
+
+  try {
+    const sdkExternal = await import("https://esm.sh/@spotware-web-team/sdk-external-api@0.0.5");
+    createClientAdapter = sdkExternal.createClientAdapter;
+
+    const sdk = await import("https://esm.sh/@spotware-web-team/sdk@0.0.9");
+    handleConfirmEvent = sdk.handleConfirmEvent;
+    registerEvent = sdk.registerEvent;
+    getLightSymbolList = sdk.getLightSymbolList;
+    getTrendbarList = sdk.getTrendbarList;
+    subscribeQuotes = sdk.subscribeQuotes;
+    quoteEvent = sdk.quoteEvent;
+
+    const rxjs = await import("https://esm.sh/rxjs@7.8.2");
+    take = rxjs.take;
+    tap = rxjs.tap;
+
+    console.log("✅ SDK modules loaded successfully");
+  } catch (error) {
+    showError(`Failed to load cTrader SDK modules. This app must be opened from cTrader Web. Error: ${error.message}`);
+    $("connTxt").textContent = "SDK LOAD FAILED";
+    $("decisionTitle").textContent = "⚠️ Cannot Connect";
+    $("decisionSub").textContent = "Open this app from inside cTrader Web platform.";
+    throw error;
+  }
 
   const PRICE_SCALE = 100000;
 
@@ -327,7 +369,6 @@
     return colombo.toISOString().replace("T"," ").slice(0,19) + " (Colombo)";
   }
 
-  // Simple session windows in UTC (practical)
   function detectSessionUTC(){
     const h = new Date().getUTCHours();
     if (h >= 0 && h < 7) return {name:"ASIA 🌙", info:"Low volatility often. Best for planning, not forcing trades."};
@@ -337,7 +378,6 @@
     return {name:"OFF HOURS 💤", info:"Avoid random entries. Wait for main session."};
   }
 
-  // EMA
   function ema(series, period){
     if (!series || series.length < period+2) return null;
     const k = 2/(period+1);
@@ -345,6 +385,7 @@
     for (let i=period;i<series.length;i++) e = series[i]*k + e*(1-k);
     return e;
   }
+
   function emaSlope(series, period){
     if (!series || series.length < period+3) return null;
     const now = ema(series, period);
@@ -383,7 +424,7 @@
       $(m.info).textContent =
         `EMA20 ${fmtPx(stateObj.eFast,5)} • EMA50 ${fmtPx(stateObj.eSlow,5)} • slope ${fmt(stateObj.slope,6)}`;
     } else {
-      $(m.info).textContent = "Loading bars…";
+      $(m.info).textContent = "Calculating indicators...";
     }
   }
 
@@ -424,20 +465,42 @@
   }
 
   async function fetchCloses(periodEnum, count=320){
+    console.log(`Fetching ${count} bars for period ${periodEnum}...`);
     const toTimestamp = Date.now();
-    const res = await new Promise((resolve) => {
-      getTrendbarList(adapter, { symbolId, period: periodEnum, toTimestamp, count })
-        .pipe(take(1))
-        .subscribe({ next: resolve, error: () => resolve(null) });
-    });
-    const bars = res?.trendbar || [];
-    const closes = [];
-    for (const b of bars){
-      const c = trendbarClose(b);
-      if (isNum(c)) closes.push(c);
+    
+    try {
+      const res = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Timeout")), 10000);
+        getTrendbarList(adapter, { symbolId, period: periodEnum, toTimestamp, count })
+          .pipe(take(1))
+          .subscribe({ 
+            next: (data) => {
+              clearTimeout(timeout);
+              resolve(data);
+            }, 
+            error: (err) => {
+              clearTimeout(timeout);
+              reject(err);
+            }
+          });
+      });
+
+      const bars = res?.trendbar || [];
+      console.log(`Received ${bars.length} bars for period ${periodEnum}`);
+      
+      const closes = [];
+      for (const b of bars){
+        const c = trendbarClose(b);
+        if (isNum(c)) closes.push(c);
+      }
+      closes.reverse();
+      
+      console.log(`Extracted ${closes.length} valid closes`);
+      return closes.length ? closes : null;
+    } catch (error) {
+      console.error(`Error fetching bars for period ${periodEnum}:`, error);
+      return null;
     }
-    closes.reverse();
-    return closes.length ? closes : null;
   }
 
   function setConn(ok){
@@ -464,6 +527,7 @@
   }
 
   async function init(){
+    console.log("🚀 Initializing Terminal...");
     const { symbol, placement } = readQuery();
     $("barSymbol").textContent = symbol;
     $("barPlacement").textContent = placement;
@@ -475,41 +539,77 @@
     clockTick();
     setInterval(clockTick, 1000);
 
-    adapter = createClientAdapter({ logger: undefined });
+    console.log("Creating cTrader adapter...");
+    adapter = createClientAdapter({ logger: console });
 
-    // handshake
+    // Handshake
+    console.log("Initiating handshake...");
     handleConfirmEvent(adapter, {}).pipe(take(1)).subscribe();
-    await new Promise((resolve) => {
-      registerEvent(adapter).pipe(
-        take(1),
-        tap(() => {
-          handleConfirmEvent(adapter, {}).pipe(take(1)).subscribe();
-          setConn(true);
-          resolve();
-        })
-      ).subscribe({ error: () => resolve() });
-    });
+    
+    try {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error("Connection timeout")), 15000);
+        
+        registerEvent(adapter).pipe(
+          take(1),
+          tap(() => {
+            clearTimeout(timeout);
+            console.log("✅ Registration successful");
+            handleConfirmEvent(adapter, {}).pipe(take(1)).subscribe();
+            setConn(true);
+            clearError();
+            resolve();
+          })
+        ).subscribe({ 
+          error: (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          }
+        });
+      });
+    } catch (error) {
+      throw new Error(`Failed to connect to cTrader: ${error.message}`);
+    }
 
-    // resolve symbolId
-    const light = await new Promise((resolve) => {
-      getLightSymbolList(adapter, {}).pipe(take(1)).subscribe({ next: resolve, error: () => resolve(null) });
+    // Resolve symbolId
+    console.log("Fetching symbol list...");
+    const light = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Symbol list timeout")), 10000);
+      getLightSymbolList(adapter, {}).pipe(take(1)).subscribe({ 
+        next: (data) => {
+          clearTimeout(timeout);
+          resolve(data);
+        }, 
+        error: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        }
+      });
     });
 
     const list = light?.symbol || light?.symbols || light?.symbolList || [];
+    console.log(`Received ${list.length} symbols`);
+    
     const wanted = String(symbol).toUpperCase();
     const hit = Array.isArray(list)
       ? list.find(s => String(s?.name || s?.symbolName || "").toUpperCase() === wanted)
       : null;
 
     symbolId = hit?.id ?? hit?.symbolId ?? null;
+    
     if (!symbolId){
-      $("decisionTitle").textContent = "Symbol not found in broker list.";
-      $("decisionSub").textContent = "Open from a chart symbol your broker provides.";
-      return;
+      throw new Error(`Symbol "${symbol}" not found in broker list. Available symbols: ${list.slice(0,10).map(s => s?.name || s?.symbolName).join(", ")}...`);
     }
 
-    // Quotes
-    subscribeQuotes(adapter, { symbolId:[symbolId] }).pipe(take(1)).subscribe({ next:()=>{}, error:()=>{} });
+    console.log(`✅ Found symbol ${symbol} with ID ${symbolId}`);
+
+    // Subscribe to quotes
+    console.log("Subscribing to quotes...");
+    subscribeQuotes(adapter, { symbolId:[symbolId] }).pipe(take(1)).subscribe({ 
+      next: () => console.log("✅ Quote subscription successful"),
+      error: (err) => console.error("Quote subscription error:", err)
+    });
+    
     quoteEvent(adapter).subscribe({
       next: (q) => {
         const sid = q?.symbolId ?? q?.SymbolId;
@@ -529,7 +629,12 @@
   }
 
   async function refreshTrend(){
-    if (!adapter || !symbolId) return;
+    if (!adapter || !symbolId) {
+      console.warn("Cannot refresh trend: adapter or symbolId missing");
+      return;
+    }
+
+    console.log("🔄 Refreshing trend data...");
 
     // Period enums: H1=9, H4=10, D1=12
     const closesH1 = await fetchCloses(9, 320);
@@ -544,7 +649,11 @@
     setTfUI("H4", tH4);
     setTfUI("D1", tD1);
 
-    // Mini lines on board for extra detail
+    $("barD1").textContent = (tD1.state==="up") ? "BULLISH 📈" :
+                             (tD1.state==="down") ? "BEARISH 📉" : "NEUTRAL ⏸️";
+    $("barH4").textContent = (tH4.state==="up") ? "BULLISH 📈" :
+                             (tH4.state==="down") ? "BEARISH 📉" : "NEUTRAL ⏸️";
+
     $("barD1mini").textContent = (tD1.state==="up") ? "slope + (bullish pressure)" :
                                  (tD1.state==="down") ? "slope - (bearish pressure)" : "mixed (no edge)";
     $("barH4mini").textContent = (tH4.state==="up") ? "supports longs" :
@@ -552,16 +661,24 @@
 
     const decision = setDecision(tD1.state, tH4.state, tH1.state);
     updateSummary(decision, tD1.state, tH4.state, tH1.state);
+    
+    console.log("✅ Trend refresh complete");
   }
 
-  $("refreshBtn").addEventListener("click", refreshTrend);
+  $("refreshBtn").addEventListener("click", () => {
+    console.log("Manual refresh triggered");
+    refreshTrend();
+  });
 
-  try{
+  // Initialize
+  try {
     await init();
-  }catch(e){
+  } catch(error) {
+    console.error("❌ Initialization failed:", error);
     setConn(false);
-    $("decisionTitle").textContent = "Open inside cTrader to enable auto trend.";
-    $("decisionSub").textContent = "In normal browser, SDK won’t connect.";
+    showError(error.message || "Unknown initialization error");
+    $("decisionTitle").textContent = "⚠️ Initialization Failed";
+    $("decisionSub").textContent = "Check console (F12) for details. Make sure you're opening this from cTrader Web.";
   }
 </script>
 </body>
